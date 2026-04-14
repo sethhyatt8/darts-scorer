@@ -1,18 +1,26 @@
 import type { CricketOptions, Mode, PlayerProfile, X01Options } from '../types/gameUi'
 
 export function BrowseNav({
-  active,
+  currentScreen,
   onNavigate,
 }: {
-  active: 'setup' | 'stats'
+  currentScreen: 'setup' | 'stats'
   onNavigate: (screen: 'setup' | 'stats') => void
 }) {
   return (
     <nav className="setup-inline-nav" aria-label="Screens">
-      <button type="button" className={active === 'setup' ? 'active' : ''} onClick={() => onNavigate('setup')}>
+      <button
+        type="button"
+        className={currentScreen === 'setup' ? 'active' : ''}
+        onClick={() => onNavigate('setup')}
+      >
         Setup
       </button>
-      <button type="button" className={active === 'stats' ? 'active' : ''} onClick={() => onNavigate('stats')}>
+      <button
+        type="button"
+        className={currentScreen === 'stats' ? 'active' : ''}
+        onClick={() => onNavigate('stats')}
+      >
         Stats
       </button>
     </nav>
@@ -29,7 +37,7 @@ interface GameSetupProps {
   setCricketOptions: (next: CricketOptions) => void
   players: PlayerProfile[]
   selectedPlayerIds: string[]
-  onMatchPlayersChange: (playerIds: string[]) => void
+  toggleMatchPlayer: (id: string, selected: boolean) => void
   newPlayerName: string
   setNewPlayerName: (name: string) => void
   onAddPlayer: () => void
@@ -48,7 +56,7 @@ function GameSetup(props: GameSetupProps) {
     setCricketOptions,
     players,
     selectedPlayerIds,
-    onMatchPlayersChange,
+    toggleMatchPlayer,
     newPlayerName,
     setNewPlayerName,
     onAddPlayer,
@@ -61,7 +69,7 @@ function GameSetup(props: GameSetupProps) {
       <div className="card setup-options-card">
         <div className="setup-section-header">
           <h2>Game Mode</h2>
-          <BrowseNav active="setup" onNavigate={onNavigate} />
+          <BrowseNav currentScreen="setup" onNavigate={onNavigate} />
         </div>
         <div className="row setup-mode-btns">
           <button type="button" className={mode === 'x01' ? 'active' : ''} onClick={() => setMode('x01')}>
@@ -126,15 +134,25 @@ function GameSetup(props: GameSetupProps) {
 
       <div className="card setup-players-card">
         <h2>Players</h2>
-        <div className="setup-roster-block">
-          <h3 className="setup-roster-title">Roster</h3>
-          {players.length === 0 ? (
-            <p className="muted setup-roster-empty">No players yet — add one below.</p>
-          ) : (
-            <ul className="setup-roster-list">
-              {players.map((player) => (
-                <li key={player.id} className="setup-roster-row">
-                  <span className="setup-roster-name">{player.name}</span>
+        <p className="setup-players-hint">Check at least two for this match. Remove drops them from the saved list.</p>
+        {players.length === 0 ? (
+          <p className="muted">No players yet — add one below.</p>
+        ) : (
+          <div className="setup-player-lines">
+            {players.map((player) => {
+              const inMatch = selectedPlayerIds.includes(player.id)
+              const inputId = `setup-match-${player.id}`
+              return (
+                <div key={player.id} className="setup-player-line">
+                  <input
+                    id={inputId}
+                    type="checkbox"
+                    checked={inMatch}
+                    onChange={(e) => toggleMatchPlayer(player.id, e.target.checked)}
+                  />
+                  <label htmlFor={inputId} className="setup-player-line-name">
+                    {player.name}
+                  </label>
                   <button
                     type="button"
                     className="btn-remove-player"
@@ -143,28 +161,11 @@ function GameSetup(props: GameSetupProps) {
                   >
                     Remove
                   </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <label className="setup-multiselect-label">
-          <span className="setup-multiselect-title">In this match</span>
-          <span className="setup-multiselect-hint">Hold Ctrl (Windows) or ⌘ (Mac) to select multiple.</span>
-          <select
-            multiple
-            className="setup-players-multiselect"
-            size={Math.min(10, Math.max(3, players.length || 3))}
-            value={selectedPlayerIds}
-            onChange={(e) => onMatchPlayersChange(Array.from(e.target.selectedOptions, (o) => o.value))}
-          >
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
+                </div>
+              )
+            })}
+          </div>
+        )}
         <div className="row setup-players-add">
           <input placeholder="Add player" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} />
           <button type="button" onClick={onAddPlayer}>

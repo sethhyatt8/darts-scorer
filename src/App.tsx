@@ -183,7 +183,12 @@ function App() {
           setCricketOptions={setCricketOptions}
           players={players}
           selectedPlayerIds={playerIds}
-          onMatchPlayersChange={setPlayerIds}
+          toggleMatchPlayer={(id, selected) =>
+            setPlayerIds((prev) => {
+              if (selected) return prev.includes(id) ? prev : [...prev, id]
+              return prev.filter((x) => x !== id)
+            })
+          }
           newPlayerName={newPlayerName}
           setNewPlayerName={setNewPlayerName}
           onAddPlayer={addPlayerProfile}
@@ -263,7 +268,7 @@ function App() {
         <section className="card stats-panel">
           <div className="stats-panel-header">
             <h2>Player Stats (x01)</h2>
-            <BrowseNav active="stats" onNavigate={(s) => setScreen(s)} />
+            <BrowseNav currentScreen="stats" onNavigate={(s) => setScreen(s)} />
           </div>
           {players.length === 0 && <p>No players yet.</p>}
           {players.map((player) => {

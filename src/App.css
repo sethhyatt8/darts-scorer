@@ -102,37 +102,24 @@
   flex-shrink: 0;
 }
 
-.setup-roster-block {
-  margin-bottom: var(--space-3);
+.setup-players-hint {
+  margin: 0 0 var(--space-3);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.35;
 }
 
-.setup-roster-title {
-  font-size: var(--font-label);
-  font-weight: 700;
-  color: var(--text-secondary);
-  margin: 0 0 var(--space-2);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.setup-roster-empty {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.setup-roster-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.setup-player-lines {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
-.setup-roster-row {
+.setup-player-line {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
@@ -140,42 +127,14 @@
   background: rgba(13, 22, 39, 0.35);
 }
 
-.setup-roster-name {
-  font-weight: 600;
+.setup-player-line-name {
+  flex: 1;
   min-width: 0;
-}
-
-.setup-multiselect-label {
-  display: grid;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.setup-multiselect-title {
-  font-weight: 700;
-  color: var(--text-secondary);
-  font-size: var(--font-label);
-}
-
-.setup-multiselect-hint {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  line-height: 1.3;
-}
-
-.setup-players-multiselect {
-  width: 100%;
-  min-height: 8rem;
-  padding: var(--space-2);
-  font: inherit;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-control);
-  color: var(--text-primary);
-}
-
-.setup-players-multiselect option {
-  padding: var(--space-2);
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  cursor: pointer;
+  margin: 0;
 }
 
 .setup-players-add {
@@ -837,4 +796,16 @@ label {
     width: min(100%, 560px);
     height: auto;
   }
+}
+
+/* Setup match checkboxes: override generic input padding; flex row aligns control with name. */
+.setup-player-line input[type='checkbox'] {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  align-self: center;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
