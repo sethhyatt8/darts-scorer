@@ -66,6 +66,12 @@ function App() {
     setNewPlayerName('')
   }
 
+  const removePlayerProfile = (id: string) => {
+    const nextPlayers = players.filter((p) => p.id !== id)
+    persistPlayers(nextPlayers)
+    setPlayerIds((prev) => prev.filter((pid) => pid !== id))
+  }
+
   const startGame = () => {
     if (playerIds.length < 2) return
     setMatch(
@@ -183,6 +189,7 @@ function App() {
           newPlayerName={newPlayerName}
           setNewPlayerName={setNewPlayerName}
           onAddPlayer={addPlayerProfile}
+          onRemovePlayer={removePlayerProfile}
           onStart={startGame}
         />
       )}
@@ -262,8 +269,10 @@ function App() {
 
       {screen === 'stats' && (
         <section className="card stats-panel">
-          <BrowseNav active="stats" onNavigate={(s) => setScreen(s)} />
-          <h2>Player Stats (x01)</h2>
+          <div className="stats-panel-header">
+            <h2>Player Stats (x01)</h2>
+            <BrowseNav active="stats" onNavigate={(s) => setScreen(s)} />
+          </div>
           {players.length === 0 && <p>No players yet.</p>}
           {players.map((player) => {
             const stats = player.x01Stats

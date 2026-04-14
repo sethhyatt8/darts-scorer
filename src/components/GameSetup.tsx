@@ -8,17 +8,14 @@ export function BrowseNav({
   onNavigate: (screen: 'setup' | 'stats') => void
 }) {
   return (
-    <div className="setup-brand-row">
-      <span className="setup-brand">Darts Scorer</span>
-      <div className="setup-brand-nav">
-        <button type="button" className={active === 'setup' ? 'active' : ''} onClick={() => onNavigate('setup')}>
-          Setup
-        </button>
-        <button type="button" className={active === 'stats' ? 'active' : ''} onClick={() => onNavigate('stats')}>
-          Stats
-        </button>
-      </div>
-    </div>
+    <nav className="setup-inline-nav" aria-label="Screens">
+      <button type="button" className={active === 'setup' ? 'active' : ''} onClick={() => onNavigate('setup')}>
+        Setup
+      </button>
+      <button type="button" className={active === 'stats' ? 'active' : ''} onClick={() => onNavigate('stats')}>
+        Stats
+      </button>
+    </nav>
   )
 }
 
@@ -36,6 +33,7 @@ interface GameSetupProps {
   newPlayerName: string
   setNewPlayerName: (name: string) => void
   onAddPlayer: () => void
+  onRemovePlayer: (id: string) => void
   onStart: () => void
 }
 
@@ -54,14 +52,17 @@ function GameSetup(props: GameSetupProps) {
     newPlayerName,
     setNewPlayerName,
     onAddPlayer,
+    onRemovePlayer,
     onStart,
   } = props
 
   return (
     <section className="setup-grid">
       <div className="card setup-options-card">
-        <BrowseNav active="setup" onNavigate={onNavigate} />
-        <h2>Game Mode</h2>
+        <div className="setup-section-header">
+          <h2>Game Mode</h2>
+          <BrowseNav active="setup" onNavigate={onNavigate} />
+        </div>
         <div className="row setup-mode-btns">
           <button type="button" className={mode === 'x01' ? 'active' : ''} onClick={() => setMode('x01')}>
             x01
@@ -122,11 +123,27 @@ function GameSetup(props: GameSetupProps) {
         <div className="setup-players-list">
           {players.map((player) => {
             const selected = selectedPlayerIds.includes(player.id)
+            const inputId = `setup-player-${player.id}`
             return (
-              <label key={player.id} className="player-toggle">
-                <input type="checkbox" checked={selected} onChange={(e) => togglePlayer(player.id, e.target.checked)} />
-                <span className="player-toggle__name">{player.name}</span>
-              </label>
+              <div key={player.id} className="player-toggle">
+                <input
+                  id={inputId}
+                  type="checkbox"
+                  checked={selected}
+                  onChange={(e) => togglePlayer(player.id, e.target.checked)}
+                />
+                <label htmlFor={inputId} className="player-toggle__name">
+                  {player.name}
+                </label>
+                <button
+                  type="button"
+                  className="btn-remove-player"
+                  onClick={() => onRemovePlayer(player.id)}
+                  aria-label={`Remove ${player.name}`}
+                >
+                  Remove
+                </button>
+              </div>
             )
           })}
         </div>
