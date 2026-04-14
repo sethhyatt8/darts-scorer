@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Dartboard from './components/Dartboard'
-import GameSetup from './components/GameSetup'
+import CricketTable from './components/CricketTable'
+import GameSetup, { BrowseNav } from './components/GameSetup'
 import PlayerSidebar from './components/PlayerSidebar'
 import ScoreFlash from './components/ScoreFlash'
 import TurnPanel from './components/TurnPanel'
-import { createMatchState, reduceMatch } from './lib/gameReducer'
+import X01Dartboard from './components/X01Dartboard'
+import { CRICKET_MAX_TAPS_PER_TURN, createMatchState, cricketDisplayBoard, reduceMatch } from './lib/gameReducer'
 import { createPlayer, loadHistory, loadPlayers, saveHistory, savePlayers } from './lib/storage'
 import './App.css'
-import type { CompletedGameRecord, CricketOptions, MatchState, PlayerProfile, X01Options } from './types/game'
+import type { CompletedGameRecord, CricketOptions, CricketTarget, MatchState, PlayerProfile, X01Options } from './types/game'
 import type { X01DerivedStats } from './types/stats'
 
 type Screen = 'setup' | 'play' | 'stats'
@@ -79,6 +80,7 @@ function App() {
     setScreen('play')
   }
 
+  /** Lifetime player stats (x01 only): updated here when a match completes, not during play. */
   const finalizeX01Match = (finalMatch: MatchState) => {
     if (!finalMatch.winnerId || finalMatch.mode !== 'x01' || finalMatch.playerIds.length < 2) return
     const winnerKey = `${finalMatch.winnerId}:${finalMatch.turnHistory.length}`
@@ -151,26 +153,22 @@ function App() {
   }
 
   const applyThrow = (throwInput: { code: string; value: number; segment: number | 'BULL' | 'MISS'; multiplier: 'S' | 'D' | 'T' | 'SB' | 'DB' | 'MISS' }) => {
+    if (match.mode !== 'x01') return
     setFlashValue(throwInput.code)
     dispatchMatch({ type: 'THROW', throwInput })
   }
 
-  return (
-    <main className="app-shell">
-      <header className="top-bar">
-        <h1>Darts Scorer</h1>
-        <div className="header-actions">
-          <button type="button" onClick={() => setScreen('setup')}>
-            Setup
-          </button>
-          <button type="button" onClick={() => setScreen('stats')}>
-            Stats
-          </button>
-        </div>
-      </header>
+  const applyCricketTap = (target: CricketTarget) => {
+    dispatchMatch({ type: 'CRICKET_TAP', target })
+  }
 
+  return (
+    <main
+      className={`app-shell ${screen === 'play' ? 'play-mode' : 'browse-mode'}${screen === 'setup' ? ' browse-setup' : ''}`}
+    >
       {screen === 'setup' && (
         <GameSetup
+          onNavigate={(s) => setScreen(s)}
           mode={mode}
           setMode={setMode}
           x01Options={x01Options}
@@ -190,30 +188,81 @@ function App() {
       )}
 
       {screen === 'play' && activePlayer && (
-        <section className="play-grid">
+        <section
+          key={`play-${match.mode}-${match.playerIds.join('|')}`}
+          className={`play-stage ${match.mode === 'x01' ? 'x01-layout' : 'cricket-layout'}`}
+        >
           <div className="board-wrap">
-            <ScoreFlash value={flashValue} />
-            <Dartboard onThrow={applyThrow} />
+            {match.mode === 'x01' && <ScoreFlash value={flashValue} />}
+            {match.mode === 'x01' ? (
+              <X01Dartboard onThrow={applyThrow} />
+            ) : (
+              <CricketTable
+                players={activePlayers}
+                activePlayerId={activePlayer.id}
+                cricketState={cricketDisplayBoard(match)}
+                pendingTapCount={match.cricketPendingTaps.length}
+                maxPendingTaps={CRICKET_MAX_TAPS_PER_TURN}
+                onMarkTarget={applyCricketTap}
+              />
+            )}
           </div>
-          <aside className="card side-panel">
-            <h2>Now Throwing: {activePlayer.name}</h2>
-            <TurnPanel turn={match.currentTurn} onEndTurn={() => dispatchMatch({ type: 'END_TURN' })} onUndo={() => dispatchMatch({ type: 'UNDO' })} />
-            <PlayerSidebar
-              players={activePlayers}
-              activePlayerId={activePlayer.id}
-              mode={match.mode}
-              x01OptionsStart={match.x01Options.startScore}
-              x01State={match.x01State}
-              cricketState={match.cricketState}
-              lastTurns={match.lastTurns}
-              winnerId={match.winnerId}
-            />
+          <aside className="card play-panel unified-panel">
+            <h2>{match.mode === 'cricket' ? 'Your turn' : 'Now Throwing'}</h2>
+            <p className="active-player-name">{activePlayer.name}</p>
+            {match.mode === 'cricket' && !match.winnerId && (
+              <p className="cricket-round-marks" aria-live="polite" title="Marks this round">
+                <span className="cricket-round-marks__n">{match.cricketPendingTaps.length}</span>
+                <span className="cricket-round-marks__sep">/</span>
+                <span className="cricket-round-marks__max">{CRICKET_MAX_TAPS_PER_TURN}</span>
+              </p>
+            )}
+            {match.winnerId && (
+              <p className="winner-banner">
+                Winner: {activePlayers.find((p) => p.id === match.winnerId)?.name ?? '—'}
+              </p>
+            )}
+            <div className="row action-row">
+              {match.mode === 'cricket' && (
+                <button
+                  type="button"
+                  className="btn-compact btn-primary"
+                  disabled={match.cricketPendingTaps.length === 0}
+                  onClick={() => dispatchMatch({ type: 'END_TURN' })}
+                >
+                  Next Turn
+                </button>
+              )}
+              <button type="button" className="btn-compact" onClick={() => dispatchMatch({ type: 'UNDO' })}>
+                Undo
+              </button>
+              <button type="button" className="btn-compact" onClick={() => setScreen('setup')}>
+                Exit Match
+              </button>
+            </div>
+            {match.mode === 'x01' && <TurnPanel turn={match.currentTurn} />}
+            {match.mode === 'x01' && (
+              <>
+                <h2>Scores</h2>
+                <PlayerSidebar
+                  players={activePlayers}
+                  activePlayerId={activePlayer.id}
+                  mode={match.mode}
+                  x01OptionsStart={match.x01Options.startScore}
+                  x01State={match.x01State}
+                  cricketState={match.cricketState}
+                  lastTurns={match.lastTurns}
+                  winnerId={match.winnerId}
+                />
+              </>
+            )}
           </aside>
         </section>
       )}
 
       {screen === 'stats' && (
         <section className="card stats-panel">
+          <BrowseNav active="stats" onNavigate={(s) => setScreen(s)} />
           <h2>Player Stats (x01)</h2>
           {players.length === 0 && <p>No players yet.</p>}
           {players.map((player) => {

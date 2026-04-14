@@ -1,6 +1,29 @@
 import type { CricketOptions, Mode, PlayerProfile, X01Options } from '../types/gameUi'
 
+export function BrowseNav({
+  active,
+  onNavigate,
+}: {
+  active: 'setup' | 'stats'
+  onNavigate: (screen: 'setup' | 'stats') => void
+}) {
+  return (
+    <div className="setup-brand-row">
+      <span className="setup-brand">Darts Scorer</span>
+      <div className="setup-brand-nav">
+        <button type="button" className={active === 'setup' ? 'active' : ''} onClick={() => onNavigate('setup')}>
+          Setup
+        </button>
+        <button type="button" className={active === 'stats' ? 'active' : ''} onClick={() => onNavigate('stats')}>
+          Stats
+        </button>
+      </div>
+    </div>
+  )
+}
+
 interface GameSetupProps {
+  onNavigate: (screen: 'setup' | 'stats') => void
   mode: Mode
   setMode: (mode: Mode) => void
   x01Options: X01Options
@@ -18,6 +41,7 @@ interface GameSetupProps {
 
 function GameSetup(props: GameSetupProps) {
   const {
+    onNavigate,
     mode,
     setMode,
     x01Options,
@@ -35,9 +59,10 @@ function GameSetup(props: GameSetupProps) {
 
   return (
     <section className="setup-grid">
-      <div className="card">
+      <div className="card setup-options-card">
+        <BrowseNav active="setup" onNavigate={onNavigate} />
         <h2>Game Mode</h2>
-        <div className="row">
+        <div className="row setup-mode-btns">
           <button type="button" className={mode === 'x01' ? 'active' : ''} onClick={() => setMode('x01')}>
             x01
           </button>
@@ -92,26 +117,26 @@ function GameSetup(props: GameSetupProps) {
         )}
       </div>
 
-      <div className="card">
+      <div className="card setup-players-card">
         <h2>Players</h2>
-        <div className="stack">
+        <div className="setup-players-list">
           {players.map((player) => {
             const selected = selectedPlayerIds.includes(player.id)
             return (
               <label key={player.id} className="player-toggle">
                 <input type="checkbox" checked={selected} onChange={(e) => togglePlayer(player.id, e.target.checked)} />
-                {player.name}
+                <span className="player-toggle__name">{player.name}</span>
               </label>
             )
           })}
-          <div className="row">
-            <input placeholder="Add player" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} />
-            <button type="button" onClick={onAddPlayer}>
-              Add
-            </button>
-          </div>
         </div>
-        <button type="button" disabled={selectedPlayerIds.length < 2} onClick={onStart}>
+        <div className="row setup-players-add">
+          <input placeholder="Add player" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} />
+          <button type="button" onClick={onAddPlayer}>
+            Add
+          </button>
+        </div>
+        <button type="button" className="btn-primary" disabled={selectedPlayerIds.length < 2} onClick={onStart}>
           Start Match
         </button>
       </div>

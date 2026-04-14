@@ -22,7 +22,7 @@ function PlayerSidebar({
   winnerId,
 }: PlayerSidebarProps) {
   return (
-    <div className="score-list">
+    <div className={`score-list ${mode === 'x01' ? 'score-list-x01' : ''}`}>
       {winnerId && <p className="winner-banner">Winner: {players.find((p) => p.id === winnerId)?.name}</p>}
       {players.map((player) => {
         const x = x01State[player.id]
@@ -33,16 +33,24 @@ function PlayerSidebar({
             <h3>{player.name}</h3>
             {mode === 'x01' ? (
               <p>
-                Score: <strong>{x?.score ?? x01OptionsStart}</strong>
+                Score: <strong className="score-value">{x?.score ?? x01OptionsStart}</strong>
               </p>
             ) : (
               <p>
-                Points: <strong>{c?.points ?? 0}</strong>
+                Points: <strong className="score-value">{c?.points ?? 0}</strong>
               </p>
             )}
             <p className="muted">
-              Last turn: {last ? `${last.throws.map((t) => t.code).join(', ')} (${last.total})` : 'n/a'}
+              Last 3
             </p>
+            <div className="player-last-throws">
+              {[0, 1, 2].map((slot) => (
+                <span key={`${player.id}-${slot}`} className="throw-pill mini-pill">
+                  {last?.throws[slot]?.code ?? '-'}
+                </span>
+              ))}
+            </div>
+            <p className="muted">Turn total: {last ? last.total : '-'}</p>
           </div>
         )
       })}

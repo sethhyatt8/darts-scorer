@@ -2,14 +2,12 @@ import type { TurnSummary } from '../types/game'
 
 interface TurnPanelProps {
   turn: TurnSummary
-  onEndTurn: () => void
-  onUndo: () => void
 }
 
-function TurnPanel({ turn, onEndTurn, onUndo }: TurnPanelProps) {
+function TurnPanel({ turn }: TurnPanelProps) {
   return (
-    <div className="turn-block">
-      <h3>Current Turn</h3>
+    <div className="turn-block compact-turn">
+      <h3>Current turn (3 darts)</h3>
       <div className="throws">
         {[0, 1, 2].map((slot) => (
           <span key={slot} className="throw-pill">
@@ -18,14 +16,6 @@ function TurnPanel({ turn, onEndTurn, onUndo }: TurnPanelProps) {
         ))}
       </div>
       <p>Total: {turn.total}</p>
-      <div className="row">
-        <button type="button" onClick={onEndTurn}>
-          End Turn
-        </button>
-        <button type="button" onClick={onUndo}>
-          Undo
-        </button>
-      </div>
     </div>
   )
 }

@@ -13,6 +13,8 @@ export interface TurnSummary {
   throws: ThrowInput[]
   total: number
   bust?: boolean
+  /** Cricket: how many mark taps were committed this turn (no dart `throws` entries). */
+  cricketMarkCount?: number
 }
 
 export interface Turn {
@@ -74,6 +76,17 @@ export interface CompletedGameRecord {
   details: Record<string, unknown>
 }
 
+export interface MatchStateSnapshot {
+  x01State: Record<string, X01PlayerState>
+  cricketState: Record<string, CricketPlayerState>
+  currentTurn: TurnSummary
+  activePlayerIndex: number
+  winnerId: string | null
+  lastTurns: Record<string, TurnSummary>
+  turnHistory: Turn[]
+  cricketPendingTaps: CricketTarget[]
+}
+
 export interface MatchState {
   mode: GameMode
   playerIds: string[]
@@ -85,14 +98,8 @@ export interface MatchState {
   cricketOptions: CricketOptions
   x01State: Record<string, X01PlayerState>
   cricketState: Record<string, CricketPlayerState>
+  /** Single-mark taps queued for the active player; max 9 per turn; applied on Next Turn (END_TURN). */
+  cricketPendingTaps: CricketTarget[]
   turnHistory: Turn[]
-  stateHistory: Array<{
-    x01State: Record<string, X01PlayerState>
-    cricketState: Record<string, CricketPlayerState>
-    currentTurn: TurnSummary
-    activePlayerIndex: number
-    winnerId: string | null
-    lastTurns: Record<string, TurnSummary>
-    turnHistory: Turn[]
-  }>
+  stateHistory: MatchStateSnapshot[]
 }

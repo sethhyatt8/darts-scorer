@@ -1,7 +1,9 @@
-import { applyCricketThrow, cricketHasClosedAll, createCricketState } from './scoring/cricket'
+import { applyCricketPendingTaps, cricketHasClosedAll, createCricketState } from './scoring/cricket'
 import { applyX01Throw, createX01State, finalizeTurnSummary, getTurnTotal } from './scoring/x01'
 import type {
   CricketOptions,
+  CricketPlayerState,
+  CricketTarget,
   MatchState,
   ThrowInput,
   TurnSummary,
@@ -10,12 +12,20 @@ import type {
 
 export type GameAction =
   | { type: 'THROW'; throwInput: ThrowInput }
+  | { type: 'CRICKET_TAP'; target: CricketTarget }
   | { type: 'END_TURN' }
   | { type: 'UNDO' }
   | { type: 'RESET' }
   | { type: 'START_MATCH'; mode: 'x01' | 'cricket'; playerIds: string[]; x01Options: X01Options; cricketOptions: CricketOptions }
 
 const emptyTurn = (): TurnSummary => ({ throws: [], total: 0 })
+
+/** Max mark taps queued before Next Turn (cricket). */
+export const CRICKET_MAX_TAPS_PER_TURN = 9
+
+function cricketCommittedTurnSummary(markCount: number): TurnSummary {
+  return { throws: [], total: 0, bust: false, cricketMarkCount: markCount }
+}
 
 export function createMatchState(args: {
   mode: 'x01' | 'cricket'
@@ -41,6 +51,7 @@ export function createMatchState(args: {
     cricketOptions: args.cricketOptions,
     x01State,
     cricketState,
+    cricketPendingTaps: [],
     turnHistory: [],
     stateHistory: [],
   }
@@ -59,6 +70,7 @@ function pushSnapshot(state: MatchState): MatchState {
         winnerId: state.winnerId,
         lastTurns: state.lastTurns,
         turnHistory: state.turnHistory,
+        cricketPendingTaps: state.cricketPendingTaps,
       },
     ],
   }
@@ -66,6 +78,23 @@ function pushSnapshot(state: MatchState): MatchState {
 
 function nextPlayerIndex(state: MatchState): number {
   return (state.activePlayerIndex + 1) % state.playerIds.length
+}
+
+/** Active player’s board including queued single-mark taps (cricket only). */
+export function cricketDisplayBoard(state: MatchState): Record<string, CricketPlayerState> {
+  if (state.mode !== 'cricket') return state.cricketState
+  const activePlayerId = state.playerIds[state.activePlayerIndex]
+  if (!activePlayerId || state.cricketPendingTaps.length === 0) return state.cricketState
+  const opponents = state.playerIds.filter((id) => id !== activePlayerId).map((id) => state.cricketState[id])
+  return {
+    ...state.cricketState,
+    [activePlayerId]: applyCricketPendingTaps(
+      state.cricketState[activePlayerId],
+      opponents,
+      state.cricketPendingTaps,
+      state.cricketOptions.pointsMode,
+    ),
+  }
 }
 
 export function reduceMatch(state: MatchState, action: GameAction): MatchState {
@@ -101,16 +130,62 @@ export function reduceMatch(state: MatchState, action: GameAction): MatchState {
   const activePlayerId = state.playerIds[state.activePlayerIndex]
 
   if (action.type === 'END_TURN') {
-    if (state.currentTurn.throws.length === 0) return state
-    const x01State = state.mode === 'x01'
-      ? {
-          ...state.x01State,
-          [activePlayerId]: {
-            ...state.x01State[activePlayerId],
-            turnStartScore: state.x01State[activePlayerId].score,
-          },
+    if (state.mode === 'cricket') {
+      if (state.cricketPendingTaps.length === 0) return state
+      const baseState = pushSnapshot(state)
+      const opponents = state.playerIds.filter((id) => id !== activePlayerId).map((id) => state.cricketState[id])
+      if (opponents.length === 0) return state
+
+      const nextActive = applyCricketPendingTaps(
+        state.cricketState[activePlayerId],
+        opponents,
+        state.cricketPendingTaps,
+        state.cricketOptions.pointsMode,
+      )
+      const updatedCricketState = {
+        ...state.cricketState,
+        [activePlayerId]: nextActive,
+      }
+
+      const finalizedTurn = cricketCommittedTurnSummary(state.cricketPendingTaps.length)
+      const closes = cricketHasClosedAll(nextActive)
+      const maxOpponentPoints = Math.max(...opponents.map((o) => o.points))
+      const ahead = nextActive.points >= maxOpponentPoints
+
+      if (closes && ahead) {
+        return {
+          ...baseState,
+          cricketState: updatedCricketState,
+          winnerId: activePlayerId,
+          cricketPendingTaps: [],
+          currentTurn: finalizedTurn,
+          lastTurns: { ...state.lastTurns, [activePlayerId]: finalizedTurn },
+          turnHistory: [...state.turnHistory, { mode: 'cricket', playerId: activePlayerId, summary: finalizedTurn }],
         }
-      : state.x01State
+      }
+
+      return {
+        ...baseState,
+        cricketState: updatedCricketState,
+        cricketPendingTaps: [],
+        currentTurn: emptyTurn(),
+        lastTurns: { ...state.lastTurns, [activePlayerId]: finalizedTurn },
+        turnHistory: [...state.turnHistory, { mode: 'cricket', playerId: activePlayerId, summary: finalizedTurn }],
+        activePlayerIndex: nextPlayerIndex(state),
+      }
+    }
+
+    if (state.currentTurn.throws.length === 0) return state
+    const x01State =
+      state.mode === 'x01'
+        ? {
+            ...state.x01State,
+            [activePlayerId]: {
+              ...state.x01State[activePlayerId],
+              turnStartScore: state.x01State[activePlayerId].score,
+            },
+          }
+        : state.x01State
 
     const finalizedTurn = finalizeTurnSummary(state.currentTurn.throws, state.currentTurn.bust ?? false)
     return {
@@ -123,107 +198,70 @@ export function reduceMatch(state: MatchState, action: GameAction): MatchState {
     }
   }
 
+  if (action.type === 'CRICKET_TAP') {
+    if (state.mode !== 'cricket') return state
+    if (state.cricketPendingTaps.length >= CRICKET_MAX_TAPS_PER_TURN) return state
+    const baseState = pushSnapshot(state)
+    return {
+      ...baseState,
+      cricketPendingTaps: [...state.cricketPendingTaps, action.target],
+    }
+  }
+
+  if (action.type !== 'THROW') return state
+  if (state.mode === 'cricket') return state
+
   const baseState = pushSnapshot(state)
   const throws = [...state.currentTurn.throws, action.throwInput]
   const turnTotal = getTurnTotal(throws)
 
-  if (state.mode === 'x01') {
-    const currentPlayerState = state.x01State[activePlayerId]
-    const result = applyX01Throw(currentPlayerState, action.throwInput, state.x01Options)
+  const currentPlayerState = state.x01State[activePlayerId]
+  const result = applyX01Throw(currentPlayerState, action.throwInput, state.x01Options)
 
-    const updatedX01State = {
-      ...state.x01State,
-      [activePlayerId]: result.nextPlayerState,
-    }
-
-    const currentTurn = {
-      throws,
-      total: turnTotal,
-      bust: result.bust,
-    }
-
-    if (result.checkedOut) {
-      const winningTurn = finalizeTurnSummary(throws, false)
-      return {
-        ...baseState,
-        x01State: updatedX01State,
-        winnerId: activePlayerId,
-        currentTurn: winningTurn,
-        lastTurns: { ...state.lastTurns, [activePlayerId]: winningTurn },
-        turnHistory: [...state.turnHistory, { mode: 'x01', playerId: activePlayerId, summary: winningTurn }],
-      }
-    }
-
-    if (result.bust || throws.length >= 3) {
-      const finalizedTurn = finalizeTurnSummary(throws, result.bust)
-      return {
-        ...baseState,
-        x01State: {
-          ...updatedX01State,
-          [activePlayerId]: {
-            ...updatedX01State[activePlayerId],
-            turnStartScore: updatedX01State[activePlayerId].score,
-          },
-        },
-        currentTurn: emptyTurn(),
-        lastTurns: { ...state.lastTurns, [activePlayerId]: finalizedTurn },
-        turnHistory: [...state.turnHistory, { mode: 'x01', playerId: activePlayerId, summary: finalizedTurn }],
-        activePlayerIndex: nextPlayerIndex(state),
-      }
-    }
-
-    return {
-      ...baseState,
-      x01State: updatedX01State,
-      currentTurn,
-    }
-  }
-
-  const opponentId = state.playerIds.find((id) => id !== activePlayerId)
-  if (!opponentId) return state
-
-  const currentCricket = state.cricketState[activePlayerId]
-  const opponentCricket = state.cricketState[opponentId]
-  const result = applyCricketThrow(currentCricket, opponentCricket, action.throwInput, state.cricketOptions.pointsMode)
-
-  const updatedCricketState = {
-    ...state.cricketState,
+  const updatedX01State = {
+    ...state.x01State,
     [activePlayerId]: result.nextPlayerState,
   }
 
-  const closes = cricketHasClosedAll(result.nextPlayerState)
-  const ahead = result.nextPlayerState.points >= opponentCricket.points
+  const currentTurn = {
+    throws,
+    total: turnTotal,
+    bust: result.bust,
+  }
 
-  if (closes && ahead) {
+  if (result.checkedOut) {
     const winningTurn = finalizeTurnSummary(throws, false)
     return {
       ...baseState,
-      cricketState: updatedCricketState,
+      x01State: updatedX01State,
       winnerId: activePlayerId,
       currentTurn: winningTurn,
       lastTurns: { ...state.lastTurns, [activePlayerId]: winningTurn },
-      turnHistory: [...state.turnHistory, { mode: 'cricket', playerId: activePlayerId, summary: winningTurn }],
+      turnHistory: [...state.turnHistory, { mode: 'x01', playerId: activePlayerId, summary: winningTurn }],
     }
   }
 
-  if (throws.length >= 3) {
-    const finalizedTurn = finalizeTurnSummary(throws, false)
+  if (result.bust || throws.length >= 3) {
+    const finalizedTurn = finalizeTurnSummary(throws, result.bust)
     return {
       ...baseState,
-      cricketState: updatedCricketState,
+      x01State: {
+        ...updatedX01State,
+        [activePlayerId]: {
+          ...updatedX01State[activePlayerId],
+          turnStartScore: updatedX01State[activePlayerId].score,
+        },
+      },
       currentTurn: emptyTurn(),
       lastTurns: { ...state.lastTurns, [activePlayerId]: finalizedTurn },
-      turnHistory: [...state.turnHistory, { mode: 'cricket', playerId: activePlayerId, summary: finalizedTurn }],
+      turnHistory: [...state.turnHistory, { mode: 'x01', playerId: activePlayerId, summary: finalizedTurn }],
       activePlayerIndex: nextPlayerIndex(state),
     }
   }
 
   return {
     ...baseState,
-    cricketState: updatedCricketState,
-    currentTurn: {
-      throws,
-      total: turnTotal,
-    },
+    x01State: updatedX01State,
+    currentTurn,
   }
 }

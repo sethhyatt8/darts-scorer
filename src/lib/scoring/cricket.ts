@@ -38,9 +38,32 @@ export function cricketHasClosedAll(player: CricketPlayerState): boolean {
   return CRICKET_TARGETS.every((target) => player.marks[target] >= 3)
 }
 
+/** One UI tap = one mark (single / inner bull), not a triple or double segment. */
+export function throwInputForSingleMark(target: CricketTarget): ThrowInput {
+  if (target === 'BULL') {
+    return { code: 'SB', value: 25, segment: 'BULL', multiplier: 'SB' }
+  }
+  return { code: `S${target}`, value: target, segment: target, multiplier: 'S' }
+}
+
+/** Simulates ordered single-mark taps for display or batch commit. */
+export function applyCricketPendingTaps(
+  base: CricketPlayerState,
+  opponents: CricketPlayerState[],
+  pending: CricketTarget[],
+  pointsMode: boolean,
+): CricketPlayerState {
+  let current = base
+  for (const target of pending) {
+    const result = applyCricketThrow(current, opponents, throwInputForSingleMark(target), pointsMode)
+    current = result.nextPlayerState
+  }
+  return current
+}
+
 export function applyCricketThrow(
   current: CricketPlayerState,
-  opponent: CricketPlayerState,
+  opponents: CricketPlayerState[],
   throwInput: ThrowInput,
   pointsMode: boolean,
 ): {
@@ -54,8 +77,8 @@ export function applyCricketThrow(
   const hitMarks = marksFromThrow(throwInput)
   const nextMarks = Math.min(3, currentMarks + hitMarks)
   const overflowMarks = Math.max(0, currentMarks + hitMarks - 3)
-  const opponentClosed = opponent.marks[target] >= 3
-  const scoredPoints = pointsMode && !opponentClosed ? overflowMarks * cricketTargetValue(target) : 0
+  const allOpponentsClosed = opponents.every((opponent) => opponent.marks[target] >= 3)
+  const scoredPoints = pointsMode && !allOpponentsClosed ? overflowMarks * cricketTargetValue(target) : 0
 
   return {
     nextPlayerState: {
