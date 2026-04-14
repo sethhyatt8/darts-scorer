@@ -78,16 +78,22 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
   width: 100%;
-  align-items: stretch;
+  align-items: start;
 }
 
 .setup-options-card {
   align-self: start;
 }
 
+.setup-grid > .card {
+  padding: var(--space-3);
+}
+
 .setup-players-card {
   display: flex;
   flex-direction: column;
+  align-self: start;
+  width: 100%;
   min-height: 0;
   gap: var(--space-2);
 }
@@ -97,12 +103,13 @@
 }
 
 .setup-players-list {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
+  max-height: min(52svh, 420px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .setup-players-add {
@@ -364,7 +371,7 @@
   gap: var(--space-2);
 }
 
-.unified-panel {
+.unified-panel--x01 {
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
 }
 
@@ -440,6 +447,39 @@
 
 .cricket-table .active-col {
   background: rgba(251, 113, 133, 0.12);
+}
+
+.cricket-marks-turn-row th {
+  padding: 6px 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
+.cricket-marks-turn-label {
+  text-align: left;
+  padding-left: 8px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.cricket-marks-turn-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.cricket-marks-turn-nums {
+  display: block;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.cricket-marks-turn-pct {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 .mark {
@@ -562,30 +602,34 @@
 
 .player-toggle {
   display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr) minmax(4.25rem, auto);
+  grid-template-columns: 1.25rem minmax(0, 1fr) minmax(4.25rem, auto);
   align-items: center;
   column-gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-2);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: rgba(13, 22, 39, 0.35);
 }
 
 .player-toggle input[type='checkbox'] {
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.125rem;
+  height: 1.125rem;
   margin: 0;
   padding: 0;
   accent-color: var(--accent);
   justify-self: start;
   align-self: center;
   cursor: pointer;
+  vertical-align: middle;
 }
 
 .player-toggle__name {
-  font-size: clamp(1.05rem, 2.2vw, 1.3rem);
+  display: flex;
+  align-items: center;
+  align-self: center;
+  font-size: clamp(1rem, 2vw, 1.2rem);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
   margin: 0;
   cursor: pointer;
   min-width: 0;
@@ -639,28 +683,6 @@
   font-size: 1.15rem;
 }
 
-.cricket-round-marks {
-  margin: 0 0 var(--space-2);
-  font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  font-size: clamp(2rem, 8vw, 3rem);
-  line-height: 1;
-  letter-spacing: 0.04em;
-  color: var(--text-primary);
-}
-
-.cricket-round-marks__sep {
-  margin: 0 0.12em;
-  opacity: 0.45;
-  font-weight: 600;
-}
-
-.cricket-round-marks__max {
-  font-size: 0.55em;
-  font-weight: 700;
-  opacity: 0.75;
-}
-
 input,
 select,
 button {
@@ -677,7 +699,19 @@ button {
     transform var(--motion-fast);
 }
 
-input:hover,
+input[type='checkbox'],
+input[type='radio'] {
+  padding: 0;
+  min-height: unset;
+  background: transparent;
+}
+
+input[type='checkbox']:hover,
+input[type='radio']:hover {
+  background: transparent;
+}
+
+input:hover:not([type='checkbox']):not([type='radio']),
 select:hover,
 button:hover {
   background: var(--bg-control-hover);

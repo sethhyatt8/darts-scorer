@@ -214,16 +214,9 @@ function App() {
               />
             )}
           </div>
-          <aside className="card play-panel unified-panel">
+          <aside className={`card play-panel unified-panel${match.mode === 'x01' ? ' unified-panel--x01' : ''}`}>
             <h2>{match.mode === 'cricket' ? 'Your turn' : 'Now Throwing'}</h2>
             <p className="active-player-name">{activePlayer.name}</p>
-            {match.mode === 'cricket' && !match.winnerId && (
-              <p className="cricket-round-marks" aria-live="polite" title="Marks this round">
-                <span className="cricket-round-marks__n">{match.cricketPendingTaps.length}</span>
-                <span className="cricket-round-marks__sep">/</span>
-                <span className="cricket-round-marks__max">{CRICKET_MAX_TAPS_PER_TURN}</span>
-              </p>
-            )}
             {match.winnerId && (
               <p className="winner-banner">
                 Winner: {activePlayers.find((p) => p.id === match.winnerId)?.name ?? '—'}

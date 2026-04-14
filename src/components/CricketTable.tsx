@@ -27,6 +27,7 @@ function CricketTable({
   onMarkTarget,
 }: CricketTableProps) {
   const atTapLimit = pendingTapCount >= maxPendingTaps
+  const pct = (n: number) => (maxPendingTaps > 0 ? Math.round((n / maxPendingTaps) * 100) : 0)
   return (
     <section className="cricket-panel">
       <div className="cricket-head">
@@ -42,6 +43,26 @@ function CricketTable({
                   {player.name}
                 </th>
               ))}
+            </tr>
+            <tr className="cricket-marks-turn-row">
+              <th scope="row" className="cricket-marks-turn-label">
+                Marks / turn
+              </th>
+              {players.map((player) => {
+                const n = player.id === activePlayerId ? pendingTapCount : 0
+                return (
+                  <th
+                    key={`${player.id}-marks-turn`}
+                    scope="col"
+                    className={`cricket-marks-turn-cell ${player.id === activePlayerId ? 'active-col' : ''}`}
+                  >
+                    <span className="cricket-marks-turn-nums">
+                      {n}/{maxPendingTaps}
+                    </span>
+                    <span className="cricket-marks-turn-pct">{pct(n)}%</span>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
