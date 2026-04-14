@@ -183,9 +183,7 @@ function App() {
           setCricketOptions={setCricketOptions}
           players={players}
           selectedPlayerIds={playerIds}
-          togglePlayer={(id, selected) =>
-            setPlayerIds((prev) => (selected ? [...prev, id] : prev.filter((existing) => existing !== id)))
-          }
+          onMatchPlayersChange={setPlayerIds}
           newPlayerName={newPlayerName}
           setNewPlayerName={setNewPlayerName}
           onAddPlayer={addPlayerProfile}
@@ -210,6 +208,7 @@ function App() {
                 cricketState={cricketDisplayBoard(match)}
                 pendingTapCount={match.cricketPendingTaps.length}
                 maxPendingTaps={CRICKET_MAX_TAPS_PER_TURN}
+                turnHistory={match.turnHistory}
                 onMarkTarget={applyCricketTap}
               />
             )}

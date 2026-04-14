@@ -29,7 +29,7 @@ interface GameSetupProps {
   setCricketOptions: (next: CricketOptions) => void
   players: PlayerProfile[]
   selectedPlayerIds: string[]
-  togglePlayer: (id: string, selected: boolean) => void
+  onMatchPlayersChange: (playerIds: string[]) => void
   newPlayerName: string
   setNewPlayerName: (name: string) => void
   onAddPlayer: () => void
@@ -48,7 +48,7 @@ function GameSetup(props: GameSetupProps) {
     setCricketOptions,
     players,
     selectedPlayerIds,
-    togglePlayer,
+    onMatchPlayersChange,
     newPlayerName,
     setNewPlayerName,
     onAddPlayer,
@@ -90,63 +90,81 @@ function GameSetup(props: GameSetupProps) {
               </select>
             </label>
             <label>
-              <input
-                type="checkbox"
-                checked={x01Options.doubleIn}
-                onChange={(e) => setX01Options({ ...x01Options, doubleIn: e.target.checked })}
-              />
               Double In
+              <select
+                value={x01Options.doubleIn ? 'yes' : 'no'}
+                onChange={(e) => setX01Options({ ...x01Options, doubleIn: e.target.value === 'yes' })}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
             </label>
             <label>
-              <input
-                type="checkbox"
-                checked={x01Options.doubleOut}
-                onChange={(e) => setX01Options({ ...x01Options, doubleOut: e.target.checked })}
-              />
               Double Out
+              <select
+                value={x01Options.doubleOut ? 'yes' : 'no'}
+                onChange={(e) => setX01Options({ ...x01Options, doubleOut: e.target.value === 'yes' })}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
             </label>
           </div>
         ) : (
           <label>
-            <input
-              type="checkbox"
-              checked={cricketOptions.pointsMode}
-              onChange={(e) => setCricketOptions({ pointsMode: e.target.checked })}
-            />
-            Cricket with points
+            Points
+            <select
+              value={cricketOptions.pointsMode ? 'yes' : 'no'}
+              onChange={(e) => setCricketOptions({ pointsMode: e.target.value === 'yes' })}
+            >
+              <option value="no">Off</option>
+              <option value="yes">On</option>
+            </select>
           </label>
         )}
       </div>
 
       <div className="card setup-players-card">
         <h2>Players</h2>
-        <div className="setup-players-list">
-          {players.map((player) => {
-            const selected = selectedPlayerIds.includes(player.id)
-            const inputId = `setup-player-${player.id}`
-            return (
-              <div key={player.id} className="player-toggle">
-                <input
-                  id={inputId}
-                  type="checkbox"
-                  checked={selected}
-                  onChange={(e) => togglePlayer(player.id, e.target.checked)}
-                />
-                <label htmlFor={inputId} className="player-toggle__name">
-                  {player.name}
-                </label>
-                <button
-                  type="button"
-                  className="btn-remove-player"
-                  onClick={() => onRemovePlayer(player.id)}
-                  aria-label={`Remove ${player.name}`}
-                >
-                  Remove
-                </button>
-              </div>
-            )
-          })}
+        <div className="setup-roster-block">
+          <h3 className="setup-roster-title">Roster</h3>
+          {players.length === 0 ? (
+            <p className="muted setup-roster-empty">No players yet — add one below.</p>
+          ) : (
+            <ul className="setup-roster-list">
+              {players.map((player) => (
+                <li key={player.id} className="setup-roster-row">
+                  <span className="setup-roster-name">{player.name}</span>
+                  <button
+                    type="button"
+                    className="btn-remove-player"
+                    onClick={() => onRemovePlayer(player.id)}
+                    aria-label={`Remove ${player.name}`}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+        <label className="setup-multiselect-label">
+          <span className="setup-multiselect-title">In this match</span>
+          <span className="setup-multiselect-hint">Hold Ctrl (Windows) or ⌘ (Mac) to select multiple.</span>
+          <select
+            multiple
+            className="setup-players-multiselect"
+            size={Math.min(10, Math.max(3, players.length || 3))}
+            value={selectedPlayerIds}
+            onChange={(e) => onMatchPlayersChange(Array.from(e.target.selectedOptions, (o) => o.value))}
+          >
+            {players.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="row setup-players-add">
           <input placeholder="Add player" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} />
           <button type="button" onClick={onAddPlayer}>
