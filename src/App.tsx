@@ -1,120 +1,251 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import Dartboard from './components/Dartboard'
+import GameSetup from './components/GameSetup'
+import PlayerSidebar from './components/PlayerSidebar'
+import ScoreFlash from './components/ScoreFlash'
+import TurnPanel from './components/TurnPanel'
+import { createMatchState, reduceMatch } from './lib/gameReducer'
+import { createPlayer, loadHistory, loadPlayers, saveHistory, savePlayers } from './lib/storage'
 import './App.css'
+import type { CompletedGameRecord, CricketOptions, MatchState, PlayerProfile, X01Options } from './types/game'
+import type { X01DerivedStats } from './types/stats'
+
+type Screen = 'setup' | 'play' | 'stats'
+type Mode = 'x01' | 'cricket'
+
+function deriveStats(player: PlayerProfile): X01DerivedStats {
+  const stats = player.x01Stats
+  const pointsPerDart = stats.dartsThrown > 0 ? stats.pointsScored / stats.dartsThrown : 0
+  const threeDartAverage = pointsPerDart * 3
+  const checkoutPercentage = stats.checkoutAttempts > 0 ? (stats.successfulCheckouts / stats.checkoutAttempts) * 100 : 0
+  const firstNineAverage = stats.legsPlayed > 0 ? (stats.firstNinePoints / (stats.legsPlayed * 9)) * 3 : 0
+  const dartsPerLeg = stats.legsPlayed > 0 ? stats.dartsThrown / stats.legsPlayed : 0
+  return { pointsPerDart, threeDartAverage, checkoutPercentage, firstNineAverage, dartsPerLeg }
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [players, setPlayers] = useState<PlayerProfile[]>(() => loadPlayers())
+  const [history, setHistory] = useState<CompletedGameRecord[]>(() => loadHistory())
+  const [screen, setScreen] = useState<Screen>('setup')
+  const [mode, setMode] = useState<Mode>('x01')
+  const [playerIds, setPlayerIds] = useState<string[]>([])
+  const [newPlayerName, setNewPlayerName] = useState('')
+  const [flashValue, setFlashValue] = useState('')
+  const [x01Options, setX01Options] = useState<X01Options>({ startScore: 501, doubleIn: false, doubleOut: true })
+  const [cricketOptions, setCricketOptions] = useState<CricketOptions>({ pointsMode: true })
+  const [match, setMatch] = useState<MatchState>(() =>
+    createMatchState({ mode: 'x01', playerIds: [], x01Options, cricketOptions }),
+  )
+  const lastRecordedWinnerRef = useRef<string>('')
+
+  const activePlayers = useMemo(
+    () => playerIds.map((id) => players.find((p) => p.id === id)).filter((p): p is PlayerProfile => Boolean(p)),
+    [playerIds, players],
+  )
+  const activePlayer = activePlayers[match.activePlayerIndex]
+
+  useEffect(() => {
+    if (!flashValue) return
+    const timeout = window.setTimeout(() => setFlashValue(''), 700)
+    return () => window.clearTimeout(timeout)
+  }, [flashValue])
+
+  const persistPlayers = (nextPlayers: PlayerProfile[]) => {
+    setPlayers(nextPlayers)
+    savePlayers(nextPlayers)
+  }
+
+  const addPlayerProfile = () => {
+    const name = newPlayerName.trim()
+    if (!name) return
+    const created = createPlayer(name)
+    const nextPlayers = [...players, created]
+    persistPlayers(nextPlayers)
+    setPlayerIds((prev) => [...prev, created.id])
+    setNewPlayerName('')
+  }
+
+  const startGame = () => {
+    if (playerIds.length < 2) return
+    setMatch(
+      createMatchState({
+        mode,
+        playerIds,
+        x01Options,
+        cricketOptions,
+      }),
+    )
+    lastRecordedWinnerRef.current = ''
+    setScreen('play')
+  }
+
+  const finalizeX01Match = (finalMatch: MatchState) => {
+    if (!finalMatch.winnerId || finalMatch.mode !== 'x01' || finalMatch.playerIds.length < 2) return
+    const winnerKey = `${finalMatch.winnerId}:${finalMatch.turnHistory.length}`
+    if (lastRecordedWinnerRef.current === winnerKey) return
+    lastRecordedWinnerRef.current = winnerKey
+
+    const now = new Date().toISOString()
+    const record: CompletedGameRecord = {
+      id: crypto.randomUUID(),
+      mode: finalMatch.mode,
+      playedAt: now,
+      playerIds: finalMatch.playerIds,
+      winnerId: finalMatch.winnerId,
+      details: {
+        x01Options: finalMatch.x01Options,
+        cricketOptions: finalMatch.cricketOptions,
+        turnHistory: finalMatch.turnHistory,
+      },
+    }
+
+    setHistory((prev) => {
+      const next = [record, ...prev].slice(0, 100)
+      saveHistory(next)
+      return next
+    })
+
+    setPlayers((prevPlayers) => {
+      const nextPlayers = prevPlayers.map((player) => {
+        if (!finalMatch.playerIds.includes(player.id)) return player
+        const state = finalMatch.x01State[player.id]
+        if (!state) return player
+        const throws = finalMatch.turnHistory
+          .filter((turn) => turn.playerId === player.id)
+          .flatMap((turn) => turn.summary.throws)
+        const firstNinePoints = throws.slice(0, 9).reduce((sum, t) => sum + t.value, 0)
+        const won = player.id === finalMatch.winnerId ? 1 : 0
+        return {
+          ...player,
+          updatedAt: now,
+          x01Stats: {
+            ...player.x01Stats,
+            matchesPlayed: player.x01Stats.matchesPlayed + 1,
+            matchesWon: player.x01Stats.matchesWon + won,
+            legsPlayed: player.x01Stats.legsPlayed + 1,
+            legsWon: player.x01Stats.legsWon + won,
+            pointsScored: player.x01Stats.pointsScored + (finalMatch.x01Options.startScore - state.score),
+            dartsThrown: player.x01Stats.dartsThrown + throws.length,
+            firstNinePoints: player.x01Stats.firstNinePoints + firstNinePoints,
+            checkoutAttempts: player.x01Stats.checkoutAttempts + 1,
+            successfulCheckouts: player.x01Stats.successfulCheckouts + won,
+            highestFinish: Math.max(player.x01Stats.highestFinish, won ? state.turnStartScore : 0),
+          },
+        }
+      })
+      savePlayers(nextPlayers)
+      return nextPlayers
+    })
+
+    setScreen('stats')
+  }
+
+  const dispatchMatch = (action: Parameters<typeof reduceMatch>[1]) => {
+    setMatch((prev) => {
+      const next = reduceMatch(prev, action)
+      if (!prev.winnerId && next.winnerId && next.mode === 'x01') {
+        queueMicrotask(() => finalizeX01Match(next))
+      }
+      return next
+    })
+  }
+
+  const applyThrow = (throwInput: { code: string; value: number; segment: number | 'BULL' | 'MISS'; multiplier: 'S' | 'D' | 'T' | 'SB' | 'DB' | 'MISS' }) => {
+    setFlashValue(throwInput.code)
+    dispatchMatch({ type: 'THROW', throwInput })
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <main className="app-shell">
+      <header className="top-bar">
+        <h1>Darts Scorer</h1>
+        <div className="header-actions">
+          <button type="button" onClick={() => setScreen('setup')}>
+            Setup
+          </button>
+          <button type="button" onClick={() => setScreen('stats')}>
+            Stats
+          </button>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
+      {screen === 'setup' && (
+        <GameSetup
+          mode={mode}
+          setMode={setMode}
+          x01Options={x01Options}
+          setX01Options={setX01Options}
+          cricketOptions={cricketOptions}
+          setCricketOptions={setCricketOptions}
+          players={players}
+          selectedPlayerIds={playerIds}
+          togglePlayer={(id, selected) =>
+            setPlayerIds((prev) => (selected ? [...prev, id] : prev.filter((existing) => existing !== id)))
+          }
+          newPlayerName={newPlayerName}
+          setNewPlayerName={setNewPlayerName}
+          onAddPlayer={addPlayerProfile}
+          onStart={startGame}
+        />
+      )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {screen === 'play' && activePlayer && (
+        <section className="play-grid">
+          <div className="board-wrap">
+            <ScoreFlash value={flashValue} />
+            <Dartboard onThrow={applyThrow} />
+          </div>
+          <aside className="card side-panel">
+            <h2>Now Throwing: {activePlayer.name}</h2>
+            <TurnPanel turn={match.currentTurn} onEndTurn={() => dispatchMatch({ type: 'END_TURN' })} onUndo={() => dispatchMatch({ type: 'UNDO' })} />
+            <PlayerSidebar
+              players={activePlayers}
+              activePlayerId={activePlayer.id}
+              mode={match.mode}
+              x01OptionsStart={match.x01Options.startScore}
+              x01State={match.x01State}
+              cricketState={match.cricketState}
+              lastTurns={match.lastTurns}
+              winnerId={match.winnerId}
+            />
+          </aside>
+        </section>
+      )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      {screen === 'stats' && (
+        <section className="card stats-panel">
+          <h2>Player Stats (x01)</h2>
+          {players.length === 0 && <p>No players yet.</p>}
+          {players.map((player) => {
+            const stats = player.x01Stats
+            const derived = deriveStats(player)
+            return (
+              <article className="stat-card" key={player.id}>
+                <h3>{player.name}</h3>
+                <p>
+                  Record: {stats.matchesWon}/{stats.matchesPlayed}
+                </p>
+                <p>PPD: {derived.pointsPerDart.toFixed(2)}</p>
+                <p>3-dart avg: {derived.threeDartAverage.toFixed(2)}</p>
+                <p>Checkout %: {derived.checkoutPercentage.toFixed(1)}%</p>
+                <p>First-9 avg: {derived.firstNineAverage.toFixed(2)}</p>
+                <p>Darts per leg: {derived.dartsPerLeg.toFixed(2)}</p>
+                <p>Highest finish: {stats.highestFinish}</p>
+              </article>
+            )
+          })}
+          <h3>Recent Matches</h3>
+          <div className="history">
+            {history.slice(0, 8).map((h) => (
+              <p key={h.id}>
+                {new Date(h.playedAt).toLocaleDateString()} - {h.mode.toUpperCase()} - Winner:{' '}
+                {players.find((p) => p.id === h.winnerId)?.name ?? 'Unknown'}
+              </p>
+            ))}
+          </div>
+        </section>
+      )}
+    </main>
   )
 }
 

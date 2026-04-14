@@ -1,6 +1,6 @@
-# Cursor Web App Template
+# Darts Scorer
 
-Starter template for static web apps deployed to GitHub Pages with:
+Static web app for scoring darts games on desktop and iPad with:
 
 - React
 - Vite
@@ -9,17 +9,15 @@ Starter template for static web apps deployed to GitHub Pages with:
 - `gh-pages` deployment script
 - GitHub Actions Pages deployment workflow
 
-## Quick start (for a new app)
+## Quick start
 
-1. Clone this template repository.
-2. Rename the folder/repository for your app.
-3. Install dependencies:
+1. Install dependencies:
 
 ```bash
 npm install
 ```
 
-4. Start development:
+2. Start development:
 
 ```bash
 npm run dev
@@ -54,6 +52,6 @@ In Cursor:
 
 After this one-time setup, cloned repos using this template should run with far fewer interruptions.
 
-## Template intent
+## Project intent
 
-This repo is intentionally minimal and cloneable so you can quickly start new apps (for example, a darts scoring app) while keeping consistent tooling and agent behavior defaults.
+Track x01 and Cricket matches with a board-first tap UI, end-turn/undo flow, and local player stats/history.
