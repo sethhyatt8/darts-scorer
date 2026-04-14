@@ -131,7 +131,6 @@ export function reduceMatch(state: MatchState, action: GameAction): MatchState {
 
   if (action.type === 'END_TURN') {
     if (state.mode === 'cricket') {
-      if (state.cricketPendingTaps.length === 0) return state
       const baseState = pushSnapshot(state)
       const opponents = state.playerIds.filter((id) => id !== activePlayerId).map((id) => state.cricketState[id])
       if (opponents.length === 0) return state

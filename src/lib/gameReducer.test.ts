@@ -78,6 +78,20 @@ describe('game reducer', () => {
     expect(state.cricketPendingTaps).toHaveLength(9)
   })
 
+  it('cricket END_TURN with no marks still passes turn (blank visit)', () => {
+    let state = createMatchState({
+      mode: 'cricket',
+      playerIds: ['a', 'b'],
+      x01Options: { startScore: 501, doubleIn: false, doubleOut: true },
+      cricketOptions: { pointsMode: true },
+    })
+    expect(state.cricketPendingTaps).toHaveLength(0)
+    state = reduceMatch(state, { type: 'END_TURN' })
+    expect(state.activePlayerIndex).toBe(1)
+    expect(state.lastTurns.a.cricketMarkCount).toBe(0)
+    expect(state.turnHistory).toHaveLength(1)
+  })
+
   it('cricket undo removes last queued tap', () => {
     let state = createMatchState({
       mode: 'cricket',

@@ -228,12 +228,7 @@ function App() {
             )}
             <div className="row action-row">
               {match.mode === 'cricket' && (
-                <button
-                  type="button"
-                  className="btn-compact btn-primary"
-                  disabled={match.cricketPendingTaps.length === 0}
-                  onClick={() => dispatchMatch({ type: 'END_TURN' })}
-                >
+                <button type="button" className="btn-compact btn-primary" onClick={() => dispatchMatch({ type: 'END_TURN' })}>
                   Next Turn
                 </button>
               )}
